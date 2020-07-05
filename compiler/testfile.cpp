@@ -1,5 +1,4 @@
 int x = int y = int z = int t = 5;
-
 int x = 5 % 3;
 
 int abs(int x)
