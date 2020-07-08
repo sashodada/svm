@@ -1,9 +1,15 @@
 %{
 #include <iostream>
+#include <vector>
+#include <string>
+#include "../ast/node_factory.h"
 
 using namespace std;
 extern int yylex();
 void yyerror(const char *);
+
+ProgramNode *program;
+int scopeCount = 0;
 %}
 
 %union {
@@ -11,6 +17,10 @@ void yyerror(const char *);
 	double d;
 	bool b;
 	char *t;
+	vector<StatementNodei*> statements;
+	StatementNode* 			statement;
+	ProgramNode* 			program;
+	ASTNode 				*node;
 }
 
 %start start
@@ -32,6 +42,9 @@ void yyerror(const char *);
 
 %type <t> type
 %type <t> identifier
+%type <program> start;
+%type <statements> global_statements;
+%type <statement> global_statement;
 
 %nonassoc NO_TOKEN 
 %nonassoc ELSE_TOKEN
@@ -47,10 +60,11 @@ void yyerror(const char *);
 
 %%
 
-start	: global_statements;
+start	: global_statements { program = new ProgramNode(($1)); }
+		;
 
-global_statements	: global_statement global_statements
-					| %empty
+global_statements	: global_statements global_statement	{ $$->push_back($2); }
+					| %empty	{ $$ = vector<StatementNode*>(); }
 					;
 
 local_statements	: local_statement local_statements { cout << endl; }
@@ -123,8 +137,8 @@ binary_expr	: expression '+' expression
 			| expression EQ expression
 			;
 
-global_statement	: function_declaration
-					| assignment ';'
+global_statement	: function_declaration 	{ $$ = new StatementNode(); }
+					| assignment ';'		{ $$ = new StatementNode(); }
 					;
 
 lvalue_expression	: declaration_expression { cout << "lvalue expression\n"; }
@@ -222,5 +236,6 @@ void yyerror(const char *msg)
 int main()
 {
 	yyparse();
+	program->print();
 	return 0;
 }

@@ -11,7 +11,7 @@
 
 # Built Lex and Yacc code
 *.output
-**/y.tab.c
-**/y.tab.h
-**/lex.yy.c
+*.tab.c
+*.tab.h
+*.yy.c
 *.swp

@@ -1,6 +1,10 @@
 %{
+#include <vector>
+#include "../ast/ast_node.h"
+#include "../ast/nodes/statement_node.h"
+#include "../ast/nodes/program_node.h"
 #include "../parser/y.tab.h"
-#include "stdlib.h"
+#include <stdlib.h>
 %}
 
 
@@ -35,7 +39,7 @@
 [\+\-\=\&\|>\<\!\*\/\%\^\~]		return yytext[0];
 
 	/* braces */
-[\(\)\{\}\[\]]				return yytext[0];
+[\(\)\{\}\[\]]			return yytext[0];
 
 	/* punctuation */
 [\;\,]					return yytext[0];

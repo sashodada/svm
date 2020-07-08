@@ -1,16 +1,12 @@
 #ifndef AST_NODE_H_
 #define AST_NODE_H_
 
-class Visitor
+enum ValueType
 {
-public:
-	Visitor() {}
-	virtual ~Visitor() {};
-	
-	visit(ASTNode *node)
-	{
-		this->visit(*node);
-	}
+	EMPTY = 0,
+	INT = 1,
+	DOUBLE = 2,
+	BOOLEAN = 3
 };
 
 class ASTNode
@@ -18,11 +14,8 @@ class ASTNode
 public:
 	ASTNode() {}
 	virtual ~ASTNode() {}
-	
-	virtual void visit(Visiton &visitor)
-	{
-		visitor.visit(this);
-	}
+
+	virtual parse();
 };
 
 #endif // AST_NODE_H_
