@@ -15,7 +15,7 @@ public:
 	ASTNode() {}
 	virtual ~ASTNode() {}
 
-	virtual parse();
+	// virtual void parse();
 };
 
 #endif // AST_NODE_H_

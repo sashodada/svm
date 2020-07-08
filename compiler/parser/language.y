@@ -17,10 +17,10 @@ int scopeCount = 0;
 	double d;
 	bool b;
 	char *t;
-	vector<StatementNodei*> statements;
+	vector<StatementNode*>* statements;
 	StatementNode* 			statement;
 	ProgramNode* 			program;
-	ASTNode 				*node;
+	ASTNode*				node;
 }
 
 %start start
@@ -60,11 +60,11 @@ int scopeCount = 0;
 
 %%
 
-start	: global_statements { program = new ProgramNode(($1)); }
+start	: global_statements { program = new ProgramNode(*$1); delete $1; }
 		;
 
 global_statements	: global_statements global_statement	{ $$->push_back($2); }
-					| %empty	{ $$ = vector<StatementNode*>(); }
+					| %empty	{ $$ = new vector<StatementNode*>(); }
 					;
 
 local_statements	: local_statement local_statements { cout << endl; }

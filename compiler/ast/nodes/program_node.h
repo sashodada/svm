@@ -12,9 +12,9 @@ using namespace std;
 class ProgramNode : public ASTNode
 {
 private:
-	vector<StatementNode> statements;
+	vector<StatementNode*> statements;
 public:
-	ProgramNode(vector<StatementNode*> _statements) : statements(_statements) {}
+	ProgramNode(vector<StatementNode*> &_statements) : statements(_statements) {}
 	virtual ~ProgramNode()
 	{
 		for (auto s : statements) delete s;

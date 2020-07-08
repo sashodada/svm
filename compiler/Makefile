@@ -23,7 +23,7 @@ lex:	$(LEX_FILE) $(PARSE_TARGET)
 	$(LEX) -o $(LEX_TARGET) lexer/scanner.l 
 
 test:	$(LEX_FILE) $(GRAMMAR_FILE)
-	make clean && make parse && make lex && $(CXX) $(PARSE_TARGET) $(LEX_TARGET) -ly; cat testfile.cpp | ./a.out
+	make clean && make parse && make lex && $(CXX) $(PARSE_TARGET) $(LEX_TARGET); cat testfile.cpp | ./a.out
 
 clean:
 	rm -f *.out $(LEX_TARGET) $(PARSE_TARGET) $(PARSE_HEADER) $(PARSE_OUTPUT)
