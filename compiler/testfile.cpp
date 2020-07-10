@@ -1,9 +1,9 @@
-int x = int y = int z = int t = 5;
-int x = 5 % 3;
+int a = int b = int c = int d = 5;
+int u = 5 % 3;
 
 int abs(int x)
 {
-	if (x < 0) return x;
+	if (x < 0) return -x;
 	return x;
 }
 
@@ -18,6 +18,7 @@ int BCD(int x, int y)
 
 int fib(int n)
 {
+	int x;
 	if (n < 2) return 0;
 	if (n == 2) return 1;
 	return fib(n - 2) + fib(n - 2);

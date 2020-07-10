@@ -18,6 +18,8 @@ public:
 		delete body;
 		if (elseBody) delete elseBody;
 	}
-}
+
+	void setElseBody(ASTNode *body) { elseBody = body; }
+};
 
 #endif //IF_NODE_H_

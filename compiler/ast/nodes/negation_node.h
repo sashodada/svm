@@ -7,7 +7,7 @@ class NegationNode : public ASTNode
 {
 private:
 	ASTNode *expression;
-public;
+public:
 	NegationNode(ASTNode *exp) : expression(exp) {}
 	virtual ~NegationNode()
 	{

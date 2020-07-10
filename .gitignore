@@ -15,3 +15,6 @@
 *.tab.h
 *.yy.c
 *.swp
+
+# Other random files
+*.txt

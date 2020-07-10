@@ -12,7 +12,7 @@ private:
 	ASTNode *right;
 	string operation;
 public:
-	BinaryExpressionNode(ASTNode *l, ASTNode *r, string &op) : left(l), right(r), operation(op) {}
+	BinaryExpressionNode(ASTNode *l, ASTNode *r, const string &op) : left(l), right(r), operation(op) {}
 	virtual ~BinaryExpressionNode()
 	{
 		delete left;

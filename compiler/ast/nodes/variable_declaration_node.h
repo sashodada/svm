@@ -9,12 +9,12 @@ class VariableDeclarationNode : public ASTNode
 {
 private:
 	string name;
-	ValueType type;
+	string type;
 public:
-	VariableDeclarationNode(string &_name, ValueType _type) : name(_name), type(_type) {}
+	VariableDeclarationNode(const string &_name, const string &_type) : name(_name), type(_type) {}
 	virtual ~VariableDeclarationNode() {}
 
-	ValueType getValueType() { return type; }
+	string getValueType() { return type; }
 	string getName() { return name; }
 };
 

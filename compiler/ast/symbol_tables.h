@@ -1,62 +1,100 @@
 #ifndef SYMBOL_TABLES_H_
 #define SYMBOL_TABLES_H_
 
+#include <iostream>
+#include "node_factory.h"
 #include <unordered_map>
 #include <vector>
 #include <string>
 
 using namespace std;
 
-struct VariableData
-{
-	string declaration_line;
-	string type;
-};
+unordered_map<int, int> scopeParents;
+unordered_map<int, vector<VariableDeclarationNode*>> variableSymbolTable;
+unordered_map<string, FunctionDeclarationNode*> functionSymbolTable;
+unordered_map<ASTNode*, int> nodeToScopeMap;
+vector<FunctionDeclarationNode*> functionsInOrder;
 
-struct FunctionData
+bool variableContainedInScope(const string &var, int scope)
 {
-	string declaration_line;
-	string type;
-	vector<string> variables;
-	unordered_map<string, string> default_variables;
-}
-	
-unordered_map<string, string> scopeParents;
-unordered_map<string, unordered_map<string, VariableData>> variableSymbolTable;
-unordered_map<string, FunctionData> functionSymbolTable;
-
-bool variableContainedInScope(string &var, string &scope)
-{
-	auto x = scope;
-	for (auto x = scope; scopeParents.find(x) != scopeParents.end(); x = *(scopeParents.find(x)))
+	for (auto x = scope; scopeParents.find(x) != scopeParents.end(); x = scopeParents[x])
 	{
-		auto scope_vars = *(variableSymbolTable.find(x));
-		if (scope_vars.find(var) != scope_vars.end()) return true;
+		auto scope_vars = variableSymbolTable[x];
+		for (size_t i = 0; i < scope_vars.size(); ++i)
+		{
+			if (scope_vars[i]->getName() == var)
+			{
+				return true;
+			}
+		}
 	}
+
+	return false;
 }
 
-void addScope(string &scopeName, string &scopeParent = "")
+void addScope(int scope, int scopeParent = -1)
 {
-	variableSymboltable[scopeName] = unorderedMap<string, VariableData>();
-	if (scopeParent != "")
-	{
-		scopeParents[scope] = scopeParent;
-	}
+	variableSymbolTable[scope]; 
+	scopeParents[scope] = scopeParent;
 }
 
-void addScopeVariable(string &scope, string &var, VariableData &data)
+void setNodeScope(ASTNode *node, int scope)
 {
-	variableSymbolTable[scope][var] = data;
+	nodeToScopeMap[node] = scope;
 }
 
-bool doesFunctionExist(string &name)
+int getNodeScope(ASTNode *node)
+{
+	return nodeToScopeMap[node];
+}
+
+void addScopeVariable(int scope, const string &var, VariableDeclarationNode *data)
+{
+	variableSymbolTable[scope].push_back(data);
+}
+
+void clearScope(int scope)
+{
+	variableSymbolTable.erase(scope);
+}
+
+bool doesFunctionExist(const string &name)
 {
 	return functionSymbolTable.find(name) != functionSymbolTable.end();
 }
 
-void addFunction(string &name, FunctionData &data)
+void addFunction(const string &name, FunctionDeclarationNode *data)
 {
-	functionSymboltable[name] = data;
+	if (functionSymbolTable.find(name) != functionSymbolTable.end())
+	{
+		if (functionSymbolTable[name]->hasFunctionBody() || !functionSymbolTable[name]->hasSameArguments(data))
+		{
+			throw runtime_error("cannot redefine function");
+		}
+		auto funcNode = functionSymbolTable[name];
+		delete funcNode;
+	}
+	else
+	{
+		functionsInOrder.push_back(data);
+	}
+	functionSymbolTable[name] = data;
+	return;
+}
+
+void initScope(int scope, const vector<ArgumentData*> &arguments)
+{
+	vector<VariableDeclarationNode*> argumentVariables;
+	for (auto x : arguments)
+	{
+		argumentVariables.push_back(new VariableDeclarationNode(x->name, x->type));	
+	}
+	variableSymbolTable[scope] = argumentVariables;
+}
+
+bool checkFunctionCall(FunctionInvocationNode *invocation)
+{
+	return functionSymbolTable.find(invocation->getName()) != functionSymbolTable.end() && functionSymbolTable[invocation->getName()]->getArgCount() == invocation->getArgCount();
 }
 
 #endif // SYMBOL_TABLES_H_

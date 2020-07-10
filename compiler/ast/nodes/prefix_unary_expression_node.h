@@ -12,7 +12,7 @@ private:
 	string operation;
 
 public:
-	PrefixUnaryExpressionNode(ASTNode *l, string &op) : lvalue(l), opeartion(op) {}
+	PrefixUnaryExpressionNode(ASTNode *l, const string &op) : lvalue(l), operation(op) {}
 	virtual ~PrefixUnaryExpressionNode()
 	{
 		delete lvalue;

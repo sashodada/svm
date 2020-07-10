@@ -12,7 +12,7 @@ private:
 	string operation;
 
 public:
-	PostfixUnaryExpressionNode(ASTNode *l, string &op) : lvalue(l), opeartion(op) {}
+	PostfixUnaryExpressionNode(ASTNode *l, const string &op) : lvalue(l), operation(op) {}
 	virtual ~PostfixUnaryExpressionNode()
 	{
 		delete lvalue;

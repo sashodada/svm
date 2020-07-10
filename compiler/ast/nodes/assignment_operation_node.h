@@ -3,14 +3,16 @@
 
 #include <string>
 #include "../ast_node.h"
+using namespace std;
 
 class AssignmentNode : public ASTNode
 {
 private:
 	ASTNode *variable;
 	ASTNode *value;
+	string operatorSign;
 public:
-	AssignmentNode(ASTNode *var, ASTNode *val) : variable(var), value(val) {}
+	AssignmentNode(ASTNode *var, ASTNode *val, const string &op) : variable(var), value(val), operatorSign(op) {}
 	virtual ~AssignmentNode()
 	{
 		delete variable;
