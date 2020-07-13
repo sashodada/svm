@@ -9,6 +9,7 @@ class StatementNode : public ASTNode
 public:
 	StatementNode() {}
 	virtual ~StatementNode() {}
+	virtual void accept(Visitor *v);
 };
 
 #endif // STATEMENT_NODE_H_

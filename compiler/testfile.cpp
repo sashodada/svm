@@ -1,6 +1,7 @@
-int a = int b = int c = int d = 5;
+int a = 5;
 int u = 5 % 3;
 
+int kuh(int x);
 int abs(int x)
 {
 	if (x < 0) return -x;
@@ -11,7 +12,10 @@ int BCD(int x, int y)
 {
 	if (x == 0) return y;
 	if (y == 0) return x;
-	if (x < 0 || y < 0) return BCD(abs(x), abs(y));
+	if (x < 0 || y < 0) 
+	{
+		return BCD(abs(x), abs(y));
+	}
 	if (x < y) return BCD(x, y % x);
 	return BCD(y, x % y);
 }
@@ -27,4 +31,9 @@ int fib(int n)
 int main()
 {
 	return fib(15);
+}
+
+int kuh(int x)
+{
+	return x * 2;
 }

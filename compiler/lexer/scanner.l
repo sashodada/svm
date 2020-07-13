@@ -40,7 +40,7 @@ using namespace std;
 "--"							return(DECREMENT);
 
 	/* operators */
-[\+\-\=\&\|>\<\!\*\/\%\^\~]		return(yytext[0]);
+[\+\-\=\>\<\!\*\/\%]		return(yytext[0]);
 
 	/* braces */
 [\(\)\{\}\[\]]					return(yytext[0]);

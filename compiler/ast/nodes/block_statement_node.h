@@ -17,10 +17,8 @@ public:
 		for (auto s : statements) delete s;
 	}
 
-	void print()
-	{
-		cout << statements.size() << endl;
-	}
+	virtual void accept(Visitor *v);
+	vector<ASTNode*> getStatements() { return statements; }
 };
 
 #endif // BLOCK_STATEMENT_NODE_H_

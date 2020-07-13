@@ -53,8 +53,11 @@ public:
 		return true;
 	}
 
+	string getType() { return type; }
 	string getName() { return name; }
+	ASTNode *getBody() { return body; }
 	size_t getArgCount() { return arguments.size(); }
+	virtual void accept(Visitor *v);
 };
 	
 

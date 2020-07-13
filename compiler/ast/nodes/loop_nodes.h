@@ -20,6 +20,7 @@ public:
 		delete iteration;
 		delete body;
 	}
+	virtual void accept(Visitor *v);
 };
 
 class WhileLoopNode : public ASTNode
@@ -34,6 +35,7 @@ public:
  		delete condition;
 		delete body;
 	}
+	virtual void accept(Visitor *v);
 };
 
 #endif //LOOP_NODES_H_

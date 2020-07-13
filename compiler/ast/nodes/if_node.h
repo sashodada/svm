@@ -19,7 +19,12 @@ public:
 		if (elseBody) delete elseBody;
 	}
 
+	ASTNode *getCondition() { return condition; }
+	ASTNode *getBody()		{ return body;		}
+	ASTNode *getElseBody()	{ return elseBody;	}
+
 	void setElseBody(ASTNode *body) { elseBody = body; }
+	virtual void accept(Visitor *v);
 };
 
 #endif //IF_NODE_H_

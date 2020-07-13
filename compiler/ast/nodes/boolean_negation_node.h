@@ -13,6 +13,9 @@ public:
 	{
 		delete expression;
 	}
+	virtual void accept(Visitor *v);
+
+	ASTNode *getInner() { return expression; }
 };
 
 #endif // BOOLEAN_NEGATION_NODE_H_

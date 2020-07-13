@@ -15,6 +15,7 @@ public:
 	virtual ~VariableReferenceNode() {}
 
 	string getName() { return variableName; }
+	virtual void accept(Visitor *v);
 };
 
 #endif // VARIABLE_REFERENCE_NODE_H_

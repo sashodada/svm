@@ -20,7 +20,9 @@ public:
 	}
 
 	string getName() { return functionName; }
+	vector<ASTNode*> getArguments() { return arguments; }
 	size_t getArgCount() { return arguments.size(); }
+	virtual void accept(Visitor *v);
 };
 
 #endif // FUNCTION_INVOCATION_NODE_H_

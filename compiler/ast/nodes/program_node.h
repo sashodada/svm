@@ -21,6 +21,8 @@ public:
 	}
 
 	void print() { cout << statements.size() << endl; }
+	vector<ASTNode*> &getStatements() { return statements; }
+	virtual void accept(Visitor *v);
 };
 
 #endif // PROGRAM_NODE_H_

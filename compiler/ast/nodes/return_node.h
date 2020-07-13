@@ -16,6 +16,7 @@ public:
 	}
 
 	ASTNode *getReturnValue() { return returnValue; }
+	virtual void accept(Visitor *v);
 };
 
 #endif // RETURN_NODE_H_

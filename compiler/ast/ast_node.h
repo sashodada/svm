@@ -1,13 +1,16 @@
 #ifndef AST_NODE_H_
 #define AST_NODE_H_
 
+#include "../../common/enums.h"
+
 enum ValueType
 {
-	EMPTY = 0,
+	UNKNOWN = 0,
 	INT = 1,
 	DOUBLE = 2,
-	BOOLEAN = 3
 };
+
+class Visitor;
 
 class ASTNode
 {
@@ -15,7 +18,9 @@ public:
 	ASTNode() {}
 	virtual ~ASTNode() {}
 
-	// virtual void parse();
+	virtual void accept(Visitor *v);
+
+	virtual void compile() {}
 };
 
 #endif // AST_NODE_H_

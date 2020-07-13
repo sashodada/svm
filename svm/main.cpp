@@ -1,9 +1,10 @@
 #include <iostream>
-#include "svm.h"
+#include "svm.hpp"
 using namespace std;
 
 int main()
 {
-	StackVM(0x100000);
+	ifstream file("test.out");
+	StackVM(file, 0x100000);
 	return 0;
 }

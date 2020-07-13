@@ -18,6 +18,12 @@ public:
 		delete variable;
 		delete value;
 	}
+
+	virtual void accept(Visitor *v);
+
+	string getOperator()	{ return operatorSign; }
+	ASTNode *getVariable() { return variable; }
+	ASTNode *getValue()		{ return value; }
 };
 
 #endif // ASSIGNMENT_NODE_H_

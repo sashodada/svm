@@ -1,10 +1,12 @@
 %{
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <stack>
 #include "../ast/node_factory.h"
 #include "../ast/symbol_tables.h"
+#include "../ast/svm_visitors.hpp"
 
 using namespace std;
 extern int yylex();
@@ -13,6 +15,19 @@ void yyerror(const char *);
 ProgramNode *program;
 int scopeNumber = 0;
 stack<int> scopes;
+
+void dumpScopes()
+{
+	stack<int> scopeCopy = scopes;
+	while (!scopeCopy.empty())
+	{
+		int s = scopeCopy.top();
+		cout << s << endl;
+		scopeCopy.pop();
+	}
+	cout << endl;
+}
+
 %}
 
 %union {
@@ -106,13 +121,22 @@ stack<int> scopes;
 start	: global_statements { program = new ProgramNode(*$1); scopes.pop(); } 
 		;
 
-global_statements	: global_statements global_statement	{ $$ = $1; $$->push_back($2);}
+global_statements	: global_statements global_statement	{ $$ = $1; $$->push_back($2); /* dumpScopes();*/ }
 					| %empty	{ $$ = new vector<ASTNode*>(); }
+					;
+
+global_statement	: function_declaration 			{ $$ = $1; }
+					| declaration_expression ';'	{ $$ = $1; }
+					| assignment ';'				{ $$ = $1; }
 					;
 
 local_statements	: local_statements local_statement 	{ $$ = $1; $$->push_back($2); }
 				   	| %empty							{ $$ = new vector<ASTNode*>(); addScope(++scopeNumber, scopes.top()); scopes.push(scopeNumber); } 
 					;
+
+local_statement : block_statement			{ $$ = $1; }
+				| generic_local_statement	{ $$ = $1; }
+				;
 
 generic_local_statement	: expression ';'			{ $$ = $1; }
 						| conditional_statement		{ $$ = $1; } 
@@ -120,17 +144,13 @@ generic_local_statement	: expression ';'			{ $$ = $1; }
 						| return_statement ';'		{ $$ = $1; }
 						;
 
-local_statement : block_statement			{ $$ = $1; }
-				| generic_local_statement	{ $$ = $1; }
-				;
-
 function_declaration	: function_decl_statement '{' local_statements '}' 	{ 
 																				$1->setFunctionBody(new BlockStatementNode(*$3)); 
-																				setNodeScope($1, scopeNumber);
+																				setNodeScope($1, scopes.top());
 																				$$ = $1;
 																				scopes.pop();
 																			}
-						| function_decl_statement ';' { $$ = $1; clearScope(scopeNumber + 1); }
+						| function_decl_statement ';' { $$ = nullptr; clearScope(scopeNumber + 1); }
 						;
 
 function_decl_statement	: type identifier '(' function_args ')' { $$ = new FunctionDeclarationNode($1, $2, *$4); addFunction($2, $$); } 
@@ -142,7 +162,7 @@ identifier	: IDENTIFIER_TOKEN	{ $$ = $1; }
 type	: IDENTIFIER_TOKEN	{ $$ = $1; }
 		;
 
-function_args	: arguments_decl	{ $$ = $1; initScope(scopeNumber + 1, *$1); }
+function_args	: arguments_decl	{ $$ = $1; initScope(scopeNumber + 1, *$1); } 
 				| %empty			{ $$ = new vector<ArgumentData*>(); }
 				;
 
@@ -186,20 +206,23 @@ binary_expr	: expression '+' expression	{ $$ = new BinaryExpressionNode($1, $3, 
 			| expression EQ expression { $$ = new BinaryExpressionNode($1, $3, "=="); }
 			;
 
-global_statement	: function_declaration 	{ $$ = $1; }
-					| assignment ';'		{ $$ = $1; }
-					;
-
 lvalue_expression	: declaration_expression	{ 
 													$$ = $1; 
 													if (variableContainedInScope($1->getName(), scopes.top()))
 													{
-														throw runtime_error("cannot redeclare variable");
+														throw runtime_error("cannot redeclare variable " + $1->getName());
 													}
 												
 													addScopeVariable(scopes.top(), $1->getName(), $1); 
 												} 
-					| identifier				{ $$ = new VariableReferenceNode($1); } 
+					| identifier				{
+													if (!variableContainedInScope($1, scopes.top()))
+													{
+														string n = $1;
+														throw runtime_error("variable " + n + " not defined");	
+													}
+													$$ = new VariableReferenceNode($1);
+												} 
 					| assignment				{ $$ = $1; }
 					| unary_lvalue_expression	{ $$ = $1; }
 					;
@@ -210,14 +233,14 @@ unary_lvalue_expression	: lvalue_expression INCREMENT %prec NO_TOKEN	{ $$ = new 
 						| DECREMENT lvalue_expression	{ $$ = new PrefixUnaryExpressionNode($2, "--"); }
 
 	/* Declarations */
-declaration_expression	: type identifier	{ $$ = new VariableDeclarationNode($2, $1); }
+declaration_expression	: type identifier	{ $$ = new VariableDeclarationNode($2, getValueType($1)); }
 						;
 
 declaration_constexpr	: declaration_expression '=' literal { $$ = new ArgumentData(); $$->name = $1->getName(); $$->type = $1->getValueType(); $$->defaultValue = $3; } 
 						;
 
-unary_operation	: '!' expression	{ $$ = new PrefixUnaryExpressionNode($2, "!"); }
-				| '-' expression	{ $$ = new PrefixUnaryExpressionNode($2, "-"); }
+unary_operation	: '!' expression	{ $$ = new BooleanNegationNode($2); }
+				| '-' expression	{ $$ = new NegationNode($2); }
 				;
 
 assignment	: lvalue_expression '=' expression		{ $$ = new AssignmentNode($1, $3, "="); }
@@ -246,29 +269,41 @@ conditional_statement	: if_statement else_statement	{ dynamic_cast<IfNode*>($1)-
 						| if_statement %prec NO_TOKEN	{ $$ = $1; }
 						;
 
-if_statement: IF_TOKEN '(' expression ')' local_statement { $$ = new IfNode($3, $5); }
+if_statement: if_token '(' expression ')' local_statement { $$ = new IfNode($3, $5); setNodeScope($$, scopes.top()); scopes.pop(); }
+			;
+	
+if_token	: IF_TOKEN { addScope(++scopeNumber, scopes.top()); scopes.push(scopeNumber); }
 			;
 
-else_statement	: ELSE_TOKEN local_statement	{ $$ = $2; }
+else_statement	: else_token local_statement	{ $$ = $2; setNodeScope($$, scopes.top()); scopes.pop(); }
 				;
+
+else_token	: ELSE_TOKEN { addScope(++scopeNumber, scopes.top()); scopes.push(scopeNumber); }
+			;
 
 return_statement	: RETURN_TOKEN				{ $$ = new ReturnNode(); }
 					| RETURN_TOKEN expression	{ $$ = new ReturnNode($2); }
 					;
 
-block_statement	: '{' local_statements '}' { $$ = new BlockStatementNode(*$2); } 
+block_statement	: '{' local_statements '}' { $$ = new BlockStatementNode(*$2); setNodeScope($$, scopes.top()); scopes.pop(); } 
 				;
 
 	/* Loops */ 
-loop	: for_statement		{ $$ = $1; }
-		| while_statement	{ $$ = $1; }
+loop	: for_statement		{ $$ = $1; setNodeScope($$, scopes.top()); scopes.pop(); }
+		| while_statement	{ $$ = $1; setNodeScope($$, scopes.top()); scopes.pop(); }
 		;
 
-for_statement	: FOR_TOKEN '(' expression ';' expression ';' expression ')' loop_init	{ $$ = new ForLoopNode($3, $5, $7, $9); } 
+for_statement	: for_token '(' expression ';' expression ';' expression ')' loop_init	{ $$ = new ForLoopNode($3, $5, $7, $9); } 
 				;
 
-while_statement	: WHILE_TOKEN '(' expression ')' loop_init	{ $$ = new WhileLoopNode($3, $5); }
+for_token	: FOR_TOKEN	{ addScope(++scopeNumber, scopes.top()); scopes.push(scopeNumber); }
+			;
+
+while_statement	: while_token '(' expression ')' loop_init	{ $$ = new WhileLoopNode($3, $5); }
 				;
+	
+while_token	: WHILE_TOKEN { addScope(++scopeNumber, scopes.top()); scopes.push(scopeNumber); } 
+			;
 
 loop_init	: generic_local_statement	{ $$ = $1; }
 			| break_statement			{ $$ = $1; }
@@ -298,6 +333,7 @@ void yyerror(const char *msg)
 
 int main()
 {
+	cout << "=======================================\n";
 	scopes.push(0);
 	addScope(0);
 	yyparse();
@@ -305,14 +341,24 @@ int main()
 	{
 		cout << "function name: ";
 		cout << x->getName() << endl;
+		int scope = getNodeScope(x);
+		cout << "Node scope " << scope << endl;
 
 		cout << "function variables:\n";
-		int scope = getNodeScope(x);
 		for (auto v : variableSymbolTable[scope])
 		{
 			cout << v->getName() << endl;
 		}
 		cout << "\n\n";
 	}
+	int ip = 6;
+	ostringstream buffer;
+	auto globalVars = new CompilationVisitor(buffer, ip);
+	globalVars->visit(program);
+
+	// save space for first jump instruction
+
+	cout << "=======================================\n";
+	// printScopes(scopeNumber);
 	return 0;
 }

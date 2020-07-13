@@ -17,6 +17,9 @@ public:
 	{
 		delete lvalue;
 	}
+	virtual void accept(Visitor *v);
+	ASTNode *getVariable() { return lvalue; }
+	string getOpreation() { return operation; }
 };
 
 #endif // PREFIX_UNARY_EXPRESSION_NODE_H_

@@ -13,6 +13,7 @@ public:
 	virtual ~IntLiteralNode() {}
 
 	int getValue() { return value; }
+	virtual void accept(Visitor *v);
 };
 
 class DoubleLiteralNode : public ASTNode
@@ -24,7 +25,8 @@ public:
 	DoubleLiteralNode(double _value) : value(_value) {}
 	virtual ~DoubleLiteralNode() {}
 	
-	double getValue();
+	double getValue() { return value; }
+	virtual void accept(Visitor *v);
 };
 
 #endif

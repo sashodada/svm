@@ -19,8 +19,10 @@ public:
 		delete right;
 	}
 
-	ValueType getValueType() { return INT; }
-	long getResult() { return 0; }
+	virtual void accept(Visitor *v);
+	ASTNode *getLeft() { return left; }
+	ASTNode *getRight() { return right; }
+	string getOperation() { return operation; }
 };
 
 #endif // BINARY_EXPRESSION_H_
