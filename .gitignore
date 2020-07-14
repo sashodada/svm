@@ -8,6 +8,7 @@
 *.exe
 *.out
 *.app
+*.code
 
 # Built Lex and Yacc code
 *.output

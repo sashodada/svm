@@ -3,7 +3,7 @@ CXX=g++
 LEX=lex
 PARSE=bison
 
-MAIN_EXECUTABLE=main.out
+MAIN_OUTPUT=main.out
 
 LEX_FILE=lexer/scanner.l
 LEX_TARGET=lexer/lex.yy.cpp
@@ -15,10 +15,8 @@ PARSE_OUTPUT=parser/y.output
 
 CFLAGS=-I.
 
-compile: a.out
-
-main:	main.cpp $(LEX_TARGET)
-	$(CXX) main.cpp $(LEX_TARGET) -o main.out
+main:	$(PARSE_TARGET) $(LEX_TARGET)
+	$(CXX) $(PARSE_TARGET) $(LEX_TARGET) -o $(MAIN_OUTPUT)
 
 parse:	$(GRAMMAR_FILE)
 	$(PARSE) -v -d -o $(PARSE_TARGET) $(GRAMMAR_FILE) 
@@ -27,7 +25,7 @@ lex:	$(LEX_FILE) $(PARSE_TARGET)
 	$(LEX) -o $(LEX_TARGET) lexer/scanner.l 
 
 test:	$(LEX_FILE) $(GRAMMAR_FILE)
-	make clean && make parse && make lex && make main; cat testfile.cpp | $(MAIN_EXECUTABLE)
+	make clean && make parse && make lex && make main; cat test1.cpp | ./$(MAIN_OUTPUT)
 
 clean:
 	rm -f *.out $(LEX_TARGET) $(PARSE_TARGET) $(PARSE_HEADER) $(PARSE_OUTPUT)

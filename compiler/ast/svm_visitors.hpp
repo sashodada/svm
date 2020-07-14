@@ -431,7 +431,6 @@ private:
 		auto dataSize = getDataSize();
 
 		auto bssOffset = getImmediateArgument(dataSize);
-		cout << dataSize << endl;
 		ip += writeInstruction(OP_ADD, op_args{bss, bssOffset}, buffer);
 
 		for (auto vars = &bssVars; vars != &dataVars; vars = &dataVars)
@@ -571,9 +570,12 @@ public:
 		{
 			auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
 			node->getReturnValue()->accept(comp);
-			auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
-			ip += writeInstruction(OP_MOV, op_args{rax, comp->detail}, buffer);
-			delete rax;
+			if (comp->detail->reg != REG_RAX)
+			{
+				auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
+				ip += writeInstruction(OP_MOV, op_args{rax, comp->detail}, buffer);
+				delete rax;
+			}
 			delete comp;
 		}
 
@@ -652,13 +654,18 @@ public:
 		ostringstream newBuffer;
 		compileBlockStatementsHelper(newBuffer, nodeToScopeMap[node], ip, node->getBody());
 
-		auto functionEnd = getImmediateArgument(ip);
+		auto functionEnd = getImmediateArgument(ip + 1);
 		writeInstruction(OP_MOV, op_args{rbx, functionEnd}, buffer);
 		buffer << newBuffer.str();
 
 		ip += writeInstruction(OP_MOV, op_args{rsp, rbp}, buffer);
 		ip += writeInstruction(OP_POP, op_args{rbp}, buffer);
-		ip += writeInstruction(OP_JMP, op_args{rbx}, buffer);
+		// ip += writeInstruction(OP_JMP, op_args{rbx}, buffer);
+
+		if (node->getName() == "main")
+		{
+			ip += writeInstruction(OP_HALT, op_args{}, buffer);
+		}
 	}
 };
 

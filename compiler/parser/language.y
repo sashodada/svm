@@ -371,10 +371,11 @@ int main(int argc, char *argv[])
 	addScope(0);
 	yyparse();
 	// dumpInfo();
+	ofstream file("../output.code");
 
 	int ip = 6;
 	ostringstream buffer;
-	auto globalVars = new CompilationVisitor(buffer, ip);
+	auto globalVars = new CompilationVisitor(file, ip);
 	globalVars->visit(program);
 
 	for (auto f : functionsInOrder)
@@ -385,11 +386,12 @@ int main(int argc, char *argv[])
 	}
 
 	auto mainTarget = getImmediateArgument(functionBegining["main"]);
-	writeInstruction(OP_JMP, op_args{mainTarget}, buffer);
+	int programSize = buffer.str().length();
+	cout << endl << programSize << endl;
+	cout << functionBegining["main"] << endl;
+	writeInstruction(OP_JMP, op_args{mainTarget}, file);
+	file << buffer.str();
 	delete mainTarget;
-	cout << buffer.str().length() << " bytes" << endl;
-
-	// save space for first jump instruction
 
 	cout << "=======================================\n";
 	return 0;
