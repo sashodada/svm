@@ -9,33 +9,8 @@
 #include "utils.h"
 using namespace std;
 
-typedef vector<InstructionArgument*> op_args;
+typedef vector<InstructionArgument *> op_args;
 
-void initNodeScope(ostream &buffer, int &ip, int scope)
-{
-	auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
-	// get variable size for current scope
-	// subtract from RSP current scope size
-	// set next scope additional task size
-}
-
-void initFunctionStackFrame(ostream &buffer, int &ip, int scope)
-{
-	auto rbx = getRegisterInstructionArgument(REG_RBX, INT);
-	auto rbp = getRegisterInstructionArgument(REG_RBP, INT);
-	auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
-
-	ip += writeInstruction(OP_PUSH, op_args{ rbx }, buffer);
-
-	// subtract from SP argument size
-	// set next scope additional stack size
-	// calculate variables and move to placement
-	// mov %rbx (ip + 13)
-	// jump to function
-	// add to SP argument size
-	// subtract from additional stack size
-	// pop rbx
-}
 class VariableVisitor : public Visitor
 {
 public:
@@ -92,23 +67,60 @@ class CompilationVisitor : public Visitor
 private:
 	ostream &buffer;
 	int &ip;
+
 public:
 	unordered_map<string, ValueType> variableTypes;
-	vector<ASTNode *> bssVars;
-	vector<ASTNode *> dataVars;
+	vector<ASTNode *> _bssVars;
+	vector<ASTNode *> _dataVars;
 	CompilationVisitor(ostream &_buffer, int &_ip) : buffer(_buffer), ip(_ip) {}
 	virtual ~CompilationVisitor() {}
 
 	virtual void visit(ProgramNode *node)
 	{
 		auto nodes = node->getStatements();
-		cout << nodes.size() << endl;
 		for (size_t i = 0; i < nodes.size(); ++i)
 		{
 			if (nodes[i] == nullptr)
 				continue;
 			nodes[i]->accept(this);
 		}
+
+		auto varVisitor = new VariableVisitor();
+		for (auto v : _bssVars)
+		{
+			v->accept(varVisitor);
+			bssVars[varVisitor->variableName] = v;
+		}
+		for (auto v : _dataVars)
+		{
+			v->accept(varVisitor);
+			dataVars[varVisitor->variableName] = v;
+		}
+	}
+
+	virtual void visit(VariableDeclarationNode *node)
+	{
+		auto varVisitor = new VariableVisitor();
+		node->accept(varVisitor);
+		if (variableTypes.find(varVisitor->variableName) != variableTypes.end())
+		{
+			throw runtime_error("variable cannot be redeclared");
+		}
+		variableTypes[varVisitor->variableName] = varVisitor->vtype;
+
+		string varName = varVisitor->variableName;
+
+		for (size_t i = 0; i < _bssVars.size(); ++i)
+		{
+			_bssVars[i]->accept(varVisitor);
+			if (varVisitor->variableName == varName)
+			{
+				_bssVars.erase(_bssVars.begin() + i);
+				break;
+			}
+		}
+
+		_bssVars.push_back(node);
 	}
 
 	virtual void visit(AssignmentNode *node)
@@ -130,16 +142,23 @@ public:
 
 		string varName = varVisitor->variableName;
 
-		for (vector<ASTNode *> v = bssVars; v != dataVars; v = dataVars)
+		for (size_t i = 0; i < _bssVars.size(); ++i)
 		{
-			for (size_t i = 0; i < v.size(); ++i)
+			_bssVars[i]->accept(varVisitor);
+			if (varVisitor->variableName == varName)
 			{
-				v[i]->accept(varVisitor);
-				if (varVisitor->variableName == varName)
-				{
-					v.erase(v.begin() + i);
-					break;
-				}
+				_bssVars.erase(_bssVars.begin() + i);
+				break;
+			}
+		}
+
+		for (size_t i = 0; i < _dataVars.size(); ++i)
+		{
+			_dataVars[i]->accept(varVisitor);
+			if (varVisitor->variableName == varName)
+			{
+				_dataVars.erase(_dataVars.begin() + i);
+				break;
 			}
 		}
 
@@ -147,28 +166,40 @@ public:
 		node->getValue()->accept(valVisitor);
 		if (valVisitor->isInitialized)
 		{
-			dataVars.push_back(node);
+			_dataVars.push_back(node);
 		}
 		else
 		{
-			bssVars.push_back(node);
+			_bssVars.push_back(node);
 		}
-
-		cout << "assignment\n";
 	}
 };
+
+void compileBlockStatementsHelper(ostream &buffer, int scope, int &ip, BlockStatementNode *node);
+
+void copyDetail(InstructionArgument *left, InstructionArgument *right)
+{
+	left->data = right->data;
+	left->placement = right->placement;
+	left->reg = right->reg;
+	left->type = right->type;
+}
 
 class ExpressionCompilerVisitor : public Visitor
 {
 private:
 	int scope;
 	int &ip;
-	InstructionArgument *detail;
+	ostream &buffer;
 
 public:
-	ostream &buffer;
-	ExpressionCompilerVisitor(ostream &_buffer, int _scope, int &_ip) : buffer(_buffer), scope(_scope), ip(_ip) {}
-	virtual ~ExpressionCompilerVisitor() {}
+	InstructionArgument *detail;
+	ExpressionCompilerVisitor(ostream &_buffer, int _scope, int &_ip) : buffer(_buffer), scope(_scope), ip(_ip)
+	{
+		detail = new InstructionArgument();
+	}
+
+	virtual ~ExpressionCompilerVisitor() { delete detail; }
 
 	virtual void visit(FunctionInvocationNode *node)
 	{
@@ -176,7 +207,43 @@ public:
 		auto rbp = getRegisterInstructionArgument(REG_RBP, INT);
 		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
 
-		// TODO:
+		int argSize = getFunctionArgumentSize(node);
+		auto argOffset = getImmediateArgument(argSize);
+
+		ip += writeInstruction(OP_PUSH, op_args{rbx}, buffer);
+		ip += writeInstruction(OP_SUB, op_args{rsp, argOffset}, buffer);
+
+		auto args = node->getArguments();
+		for (int i = 0; i < args.size(); ++i)
+		{
+			auto arg = args[i];
+			auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
+			arg->accept(comp);
+			auto argOffset = getArgumentOffset(node, i);
+			argOffset->reg = REG_RSP;
+			auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
+			ip += writeInstruction(OP_MOV, op_args{rax, argOffset}, buffer);
+		}
+
+		int newIp = ip + 17;
+		auto anchor = getImmediateArgument(newIp);
+		ip += writeInstruction(OP_MOV, op_args{rbx, anchor}, buffer);
+
+		int functionAddress = functionBegining[node->getName()];
+		auto jump = getImmediateArgument(functionAddress);
+
+		ip += writeInstruction(OP_JMP, op_args{jump}, buffer);
+		ip += writeInstruction(OP_ADD, op_args{rsp, argOffset}, buffer);
+		ip += writeInstruction(OP_POP, op_args{rbx}, buffer);
+
+		detail->reg = REG_RAX;
+		detail->placement = PLC_REGISTER;
+		detail->type = getValueType(functionSymbolTable[node->getName()]->getType());
+	}
+
+	virtual void visit(BlockStatementNode *node)
+	{
+		compileBlockStatementsHelper(buffer, scope, ip, node);
 	}
 
 	virtual void visit(BinaryExpressionNode *node)
@@ -191,7 +258,7 @@ public:
 		auto rightOperand = cmpr->detail;
 		if (cmpr->detail->placement == PLC_REGISTER && cmpr->detail->reg == REG_RAX)
 		{
-			ip += writeInstruction(OP_PUSH, op_args{ cmpr->detail }, buffer);
+			ip += writeInstruction(OP_PUSH, op_args{cmpr->detail}, buffer);
 			rightOperand = getRegisterInstructionArgument(REG_RSP, cmpr->detail->type);
 		}
 
@@ -199,33 +266,34 @@ public:
 		auto rax = getRegisterInstructionArgument(REG_RAX, cmpl->detail->type);
 		if (cmpl->detail->placement != PLC_REGISTER || cmpl->detail->reg != REG_RAX)
 		{
-			ip += writeInstruction(OP_MOV, op_args{ rax, cmpl->detail }, buffer);
+			ip += writeInstruction(OP_MOV, op_args{rax, cmpl->detail}, buffer);
 		}
-		ip += writeInstruction(getOperatorOpCode(node->getOperation()), op_args{ rax, rightOperand }, buffer);
+		ip += writeInstruction(getOperatorOpCode(node->getOperation()), op_args{rax, rightOperand}, buffer);
 
 		if (rightOperand != cmpr->detail)
 		{
 			auto rsp = getRegisterInstructionArgument(REG_RSP, rightOperand->type);
 			auto off = getImmediateArgument(getValueTypeOffset(cmpr->detail->type));
-			ip += writeInstruction(OP_ADD, op_args{ rsp, off }, buffer);
+			ip += writeInstruction(OP_ADD, op_args{rsp, off}, buffer);
 			delete rsp;
 			delete off;
 		}
-		delete cmpr->detail;
-		delete cmpl->detail;
 
 		ValueType type;
 		switch (getOperatorOpCode(node->getOperation()))
 		{
-			case OP_AND:
-			case OP_OR:
-			case OP_EQ:
-			case OP_NEQ:
-			case OP_GEQ:
-			case OP_GT:
-			case OP_LT:
-			case OP_LEQ: type = INT; break;
-			default:	 type = (cmpl->detail->type == INT || cmpr->detail->type == INT ? INT : DOUBLE);
+		case OP_AND:
+		case OP_OR:
+		case OP_EQ:
+		case OP_NEQ:
+		case OP_GEQ:
+		case OP_GT:
+		case OP_LT:
+		case OP_LEQ:
+			type = INT;
+			break;
+		default:
+			type = (cmpl->detail->type == INT || cmpr->detail->type == INT ? INT : DOUBLE);
 		};
 
 		detail->type = type;
@@ -242,9 +310,9 @@ public:
 		val->accept(calcval);
 
 		auto opCode = (node->getOperator() == "=" ? OP_MOV : getOperatorOpCode("" + node->getOperator()[0]));
-		ip += writeInstruction(opCode, op_args{ calcvar->detail, calcval->detail }, buffer);
-		detail = calcvar->detail;
-		delete calcval->detail;
+		ip += writeInstruction(opCode, op_args{calcvar->detail, calcval->detail}, buffer);
+
+		copyDetail(detail, calcvar->detail);
 	}
 
 	virtual void visit(PostfixUnaryExpressionNode *node)
@@ -252,27 +320,27 @@ public:
 		auto inner = node->getVariable();
 		auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
 		inner->accept(comp);
-		
-		auto opCode = getOperatorOpCode(node->getOperation());
-		auto rax	= getRegisterInstructionArgument(REG_RAX, comp->detail->type); 
-		ip += writeInstruction(opCode, op_args{ comp->detail }, buffer);
-		ip += writeInstruction(OP_MOV, op_args{ rax, comp->detail }, buffer);
 
-		detail = comp->detail;
+		auto opCode = getOperatorOpCode(node->getOperation());
+		auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
+		ip += writeInstruction(opCode, op_args{comp->detail}, buffer);
+		ip += writeInstruction(OP_MOV, op_args{rax, comp->detail}, buffer);
+
+		copyDetail(detail, comp->detail);
 	}
-	
+
 	virtual void visit(PrefixUnaryExpressionNode *node)
 	{
 		auto inner = node->getVariable();
 		auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
 		inner->accept(comp);
-		
-		auto opCode = getOperatorOpCode(node->getOpreation());
-		auto rax	= getRegisterInstructionArgument(REG_RAX, comp->detail->type); 
-		ip += writeInstruction(OP_MOV, op_args{ rax, comp->detail }, buffer);
-		ip += writeInstruction(opCode, op_args{ comp->detail }, buffer);
 
-		detail = comp->detail;
+		auto opCode = getOperatorOpCode(node->getOpreation());
+		auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
+		ip += writeInstruction(OP_MOV, op_args{rax, comp->detail}, buffer);
+		ip += writeInstruction(opCode, op_args{comp->detail}, buffer);
+
+		copyDetail(detail, comp->detail);
 	}
 
 	virtual void visit(NegationNode *node)
@@ -284,14 +352,13 @@ public:
 		auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
 		if (comp->detail->placement != PLC_REGISTER || comp->detail->reg != REG_RAX)
 		{
-			ip += writeInstruction(OP_MOV, op_args{ rax, comp->detail }, buffer);
+			ip += writeInstruction(OP_MOV, op_args{rax, comp->detail}, buffer);
 		}
-		ip += writeInstruction(OP_NEG, op_args{ rax }, buffer);
-		detail = new InstructionArgument();
+		ip += writeInstruction(OP_NEG, op_args{rax}, buffer);
 		detail->type = INT;
 		detail->placement = PLC_REGISTER;
 		detail->reg = REG_RAX;
-		delete comp->detail;
+		delete comp;
 		delete rax;
 	}
 
@@ -304,14 +371,13 @@ public:
 		auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
 		if (comp->detail->placement != PLC_REGISTER || comp->detail->reg != REG_RAX)
 		{
-			ip += writeInstruction(OP_MOV, op_args{ rax, comp->detail }, buffer);
+			ip += writeInstruction(OP_MOV, op_args{rax, comp->detail}, buffer);
 		}
-		ip += writeInstruction(OP_NOT, op_args{ rax }, buffer);
-		detail = new InstructionArgument();
+		ip += writeInstruction(OP_NOT, op_args{rax}, buffer);
 		detail->type = INT;
 		detail->placement = PLC_REGISTER;
 		detail->reg = REG_RAX;
-		delete comp->detail;
+		delete comp;
 		delete rax;
 	}
 
@@ -327,14 +393,28 @@ public:
 
 	virtual void visit(VariableReferenceNode *node)
 	{
-		int offset = getVariableOffset(node->getName(), scope);
-		detail = getRegisterOffsetArgument(REG_RBP, getVariableType(node->getName(), scope), offset);
+		auto offset = getLocalVariableOffset(node->getName(), scope);
+		if (!offset)
+			offset = getArgumentOffsetByName(scope, node->getName());
+		if (!offset)
+			offset = getGlobalVariableOffset(node->getName());
+		if (!offset)
+			throw runtime_error("Cannot find variable " + node->getName());
+
+		detail = offset;
 	}
 
 	virtual void visit(VariableDeclarationNode *node)
 	{
-		int offset = getVariableOffset(node->getName(), scope);
-		detail = getRegisterOffsetArgument(REG_RBP, getVariableType(node->getName(), scope), offset);
+		auto offset = getLocalVariableOffset(node->getName(), scope);
+		if (!offset)
+			offset = getArgumentOffsetByName(scope, node->getName());
+		if (!offset)
+			offset = getGlobalVariableOffset(node->getName());
+		if (!offset)
+			throw runtime_error("Cannot find variable " + node->getName());
+
+		detail = offset;
 	}
 };
 
@@ -345,28 +425,184 @@ private:
 	int &ip;
 	ostream &buffer;
 
+	void dumpGlobals()
+	{
+		auto bss = getRegisterInstructionArgument(REG_BSS, INT);
+		auto dataSize = getDataSize();
+
+		auto bssOffset = getImmediateArgument(dataSize);
+		cout << dataSize << endl;
+		ip += writeInstruction(OP_ADD, op_args{bss, bssOffset}, buffer);
+
+		for (auto vars = &bssVars; vars != &dataVars; vars = &dataVars)
+		{
+			for (auto v : *vars)
+			{
+				auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
+				v.second->accept(comp);
+				delete comp;
+			}
+		}
+
+		delete bssOffset;
+		delete bss;
+	}
+
 public:
 	StatementCompiler(ostream &_buffer, int _scope, int &_ip) : scope(_scope), ip(_ip), buffer(_buffer) {}
 	virtual ~StatementCompiler() {}
 
 	virtual void visit(ForLoopNode *node)
 	{
+		auto newScope = nodeToScopeMap[node];
+		int offsetSize = 0;
+		for (auto x : variableSymbolTable[newScope])
+		{
+			offsetSize += getValueTypeOffset(x->getValueType());
+		}
+
+		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
+		auto offset = getImmediateArgument(offsetSize);
+		ip += writeInstruction(OP_SUB, op_args{rsp, offset}, buffer);
+
+		auto comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
+		node->getInitialization()->accept(comp);
+		delete comp;
+
+		auto loopBegin = getImmediateArgument(ip);
+
+		comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
+		node->getBody()->accept(comp);
+		delete comp;
+
+		comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
+		node->getIteration()->accept(comp);
+		delete comp;
+
+		comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
+		node->getCondition()->accept(comp);
+
+		ip += writeInstruction(OP_JZ, op_args{comp->detail, loopBegin}, buffer);
+		ip += writeInstruction(OP_ADD, op_args{rsp, offset}, buffer);
+		delete comp;
+		delete loopBegin;
+		delete offset;
+		delete rsp;
 	}
 
 	virtual void visit(WhileLoopNode *node)
 	{
+		auto newScope = nodeToScopeMap[node];
+		int offsetSize = 0;
+		for (auto x : variableSymbolTable[newScope])
+		{
+			offsetSize += getValueTypeOffset(x->getValueType());
+		}
+
+		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
+		auto offset = getImmediateArgument(offsetSize);
+		ip += writeInstruction(OP_SUB, op_args{rsp, offset}, buffer);
+
+		auto loopBegin = getImmediateArgument(ip);
+
+		auto comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
+		node->getBody()->accept(comp);
+		delete comp;
+
+		comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
+		node->getCondition()->accept(comp);
+		ip += writeInstruction(OP_JZ, op_args{comp->detail, loopBegin}, buffer);
+		ip += writeInstruction(OP_ADD, op_args{rsp, offset}, buffer);
+		delete comp;
+		delete loopBegin;
+		delete offset;
+		delete rsp;
 	}
 
 	virtual void visit(IfNode *node)
 	{
+		auto newScope = nodeToScopeMap[node];
+		int offsetSize = 0;
+		for (auto x : variableSymbolTable[newScope])
+		{
+			offsetSize += getValueTypeOffset(x->getValueType());
+		}
+
+		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
+		auto offset = getImmediateArgument(offsetSize);
+		ip += writeInstruction(OP_SUB, op_args{rsp, offset}, buffer);
+
+		auto comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
+		node->getCondition()->accept(comp);
+
+		// leave place for JNZ instruction (comp->detail->type offset + immediateInt(5b) + instruction(1b) )
+		int conditionResultInstructionSize =
+			(comp->detail->placement == PLC_REGISTER ? 2 : (comp->detail->placement == PLC_REGISTER_OFFSET ? 6 : getValueTypeOffset(comp->detail->type)));
+
+		ip += conditionResultInstructionSize + 6;
+		ostringstream newBuf;
+
+		auto comp2 = new StatementCompiler(newBuf, newScope, ip);
+		node->getBody()->accept(comp2);
+
+		auto jumpDest = getImmediateArgument(ip);
+		writeInstruction(OP_JNZ, op_args{comp->detail, jumpDest}, buffer);
+
+		buffer << newBuf.str();
+
+		delete comp2;
+		if (node->getElseBody())
+		{
+			comp2 = new StatementCompiler(newBuf, newScope, ip);
+			node->getElseBody()->accept(comp2);
+			delete comp2;
+		}
+
+		ip += writeInstruction(OP_ADD, op_args{rsp, offset}, buffer);
+		delete offset;
+		delete rsp;
+		delete jumpDest;
+		delete comp;
 	}
 
 	virtual void visit(ReturnNode *node)
 	{
+		if (node->getReturnValue())
+		{
+			auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
+			node->getReturnValue()->accept(comp);
+			auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
+			ip += writeInstruction(OP_MOV, op_args{rax, comp->detail}, buffer);
+			delete rax;
+			delete comp;
+		}
+
+		auto rbx = getRegisterInstructionArgument(REG_RBX, INT);
+		ip += writeInstruction(OP_JMP, op_args{rbx}, buffer);
+		delete rbx;
 	}
 
 	virtual void visit(BlockStatementNode *node)
 	{
+		auto newScope = nodeToScopeMap[node];
+		int offsetSize = 0;
+		for (auto x : variableSymbolTable[newScope])
+		{
+			offsetSize += getValueTypeOffset(x->getValueType());
+		}
+
+		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
+		auto offset = getImmediateArgument(offsetSize);
+		ip += writeInstruction(OP_SUB, op_args{rsp, offset}, buffer);
+
+		auto statements = node->getStatements();
+		for (int i = 0; i < statements.size(); ++i)
+		{
+			auto comp = new StatementCompiler(buffer, newScope, ip);
+			statements[i]->accept(comp);
+		}
+
+		ip += writeInstruction(OP_ADD, op_args{rsp, offset}, buffer);
 	}
 
 	virtual void visit(PrefixUnaryExpressionNode *node)
@@ -389,28 +625,51 @@ public:
 		node->accept(comp);
 		delete comp;
 	}
-};
 
-class FunctionCompiler
-{
-private:
-	ostream &buffer;
-	int &ip;
-	int scope;
-	vector<ASTNode *> nodes;
-
-public:
-	FunctionCompiler(ostream &_buffer, int &_ip, int _scope, const vector<ASTNode *> &_nodes) : buffer(_buffer), ip(_ip), scope(_scope), nodes(_nodes) {}
-
-	void compile()
+	virtual void visit(FunctionInvocationNode *node)
 	{
-		for (auto statement : nodes)
+		auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
+		node->accept(comp);
+	}
+
+	virtual void visit(FunctionDeclarationNode *node)
+	{
+		functionBegining[node->getName()] = ip;
+
+		if (node->getName() == "main")
 		{
-			auto sc = new StatementCompiler(buffer, scope, ip);
-			statement->accept(sc);
-			delete sc;
+			this->dumpGlobals();
 		}
+
+		auto rbp = getRegisterInstructionArgument(REG_RBP, INT);
+		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
+		auto rbx = getRegisterInstructionArgument(REG_RBX, INT);
+		ip += writeInstruction(OP_PUSH, op_args{rbp}, buffer);
+		ip += writeInstruction(OP_MOV, op_args{rbp, rsp}, buffer);
+
+		// leave room for MOV %rbx (ip) - 6b
+		ip += 6;
+		ostringstream newBuffer;
+		compileBlockStatementsHelper(newBuffer, nodeToScopeMap[node], ip, node->getBody());
+
+		auto functionEnd = getImmediateArgument(ip);
+		writeInstruction(OP_MOV, op_args{rbx, functionEnd}, buffer);
+		buffer << newBuffer.str();
+
+		ip += writeInstruction(OP_MOV, op_args{rsp, rbp}, buffer);
+		ip += writeInstruction(OP_POP, op_args{rbp}, buffer);
+		ip += writeInstruction(OP_JMP, op_args{rbx}, buffer);
 	}
 };
+
+void compileBlockStatementsHelper(ostream &buffer, int scope, int &ip, BlockStatementNode *node)
+{
+	auto statements = node->getStatements();
+	for (auto s : statements)
+	{
+		auto comp = new StatementCompiler(buffer, scope, ip);
+		s->accept((Visitor *)comp);
+	}
+}
 
 #endif // SVM_VISITORS_H_#ifndef SVM_VISITORS_H_

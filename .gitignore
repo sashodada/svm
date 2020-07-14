@@ -11,9 +11,9 @@
 
 # Built Lex and Yacc code
 *.output
-*.tab.c
-*.tab.h
-*.yy.c
+*.tab.cpp
+*.tab.hpp
+*.yy.cpp
 *.swp
 
 # Other random files

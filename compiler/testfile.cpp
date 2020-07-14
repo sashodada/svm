@@ -1,30 +1,48 @@
-int a = 5;
+double a;
 int u = 5 % 3;
 
+double mult(double b);
 int kuh(int x);
 int abs(int x)
 {
-	if (x < 0) return -x;
+	int y = x + y;
+	if (x < 0)
+		return -x;
 	return x;
 }
 
 int BCD(int x, int y)
 {
-	if (x == 0) return y;
-	if (y == 0) return x;
-	if (x < 0 || y < 0) 
+	if (x == 0)
+		return y;
+	if (y == 0)
+		return x;
+	if (x < 0 || y < 0)
 	{
 		return BCD(abs(x), abs(y));
 	}
-	if (x < y) return BCD(x, y % x);
+	if (x < y)
+		return BCD(x, y % x);
 	return BCD(y, x % y);
+}
+
+int calc1024()
+{
+	int buffer = 1;
+	for (int i = 0; i < 10; ++i)
+	{
+		buffer *= 2;
+	}
+	return buffer;
 }
 
 int fib(int n)
 {
 	int x;
-	if (n < 2) return 0;
-	if (n == 2) return 1;
+	if (n < 2)
+		return 0;
+	if (n == 2)
+		return 1;
 	return fib(n - 2) + fib(n - 2);
 }
 
@@ -36,4 +54,10 @@ int main()
 int kuh(int x)
 {
 	return x * 2;
+}
+
+double mult(double b)
+{
+	a *= b;
+	return b;
 }

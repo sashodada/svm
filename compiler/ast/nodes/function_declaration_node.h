@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include "../ast_node.h"
+#include "block_statement_node.h"
 using namespace std;
 
 struct ArgumentData
@@ -20,10 +21,10 @@ private:
 	string type;
 	string name;
 	vector<ArgumentData*> arguments;
-	ASTNode *body;
+	BlockStatementNode *body;
 
 public:
-	FunctionDeclarationNode(const string &_type, const string& _name, const vector<ArgumentData*> &args, ASTNode *_body = nullptr) : type(_type), name(_name), arguments(args), body(_body) { }
+	FunctionDeclarationNode(const string &_type, const string& _name, const vector<ArgumentData*> &args, BlockStatementNode *_body = nullptr) : type(_type), name(_name), arguments(args), body(_body) { }
 	virtual ~FunctionDeclarationNode()
 	{
 		if (body)
@@ -38,7 +39,7 @@ public:
 	}
 
 	bool hasFunctionBody() { return body != nullptr; }
-	void setFunctionBody(ASTNode *_body) { body = _body; }
+	void setFunctionBody(BlockStatementNode *_body) { body = _body; }
 	ASTNode *getFunctionBody() { return body; }
 
 	bool hasSameArguments(FunctionDeclarationNode *other)
@@ -55,7 +56,8 @@ public:
 
 	string getType() { return type; }
 	string getName() { return name; }
-	ASTNode *getBody() { return body; }
+	BlockStatementNode *getBody() { return body; }
+	vector<ArgumentData*> getArguments() { return arguments; }
 	size_t getArgCount() { return arguments.size(); }
 	virtual void accept(Visitor *v);
 };

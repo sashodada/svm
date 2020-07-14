@@ -34,7 +34,7 @@ public:
 	virtual void visit(VariableReferenceNode *node) {} 
 };
 
-void ASTNode::accept(Visitor *v)		{ this->accept(v); cout << "accept\n"; }
+void ASTNode::accept(Visitor *v)		{ this->accept(v); }
 void AssignmentNode::accept(Visitor *v) { v->visit(this); }
 void BinaryExpressionNode::accept(Visitor *v) { v->visit(this); }
 void BlockStatementNode::accept(Visitor *v) { v->visit(this); }

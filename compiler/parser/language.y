@@ -1,6 +1,7 @@
 %{
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <vector>
 #include <string>
 #include <stack>
@@ -126,7 +127,15 @@ global_statements	: global_statements global_statement	{ $$ = $1; $$->push_back(
 					;
 
 global_statement	: function_declaration 			{ $$ = $1; }
-					| declaration_expression ';'	{ $$ = $1; }
+					| declaration_expression ';'	{ 
+														$$ = $1; 
+														if (variableContainedInScope($1->getName(), scopes.top()))
+														{
+															throw runtime_error("cannot redeclare variable " + $1->getName());
+														}
+													
+														addScopeVariable(scopes.top(), $1->getName(), $1); 
+													}
 					| assignment ';'				{ $$ = $1; }
 					;
 
@@ -150,10 +159,10 @@ function_declaration	: function_decl_statement '{' local_statements '}' 	{
 																				$$ = $1;
 																				scopes.pop();
 																			}
-						| function_decl_statement ';' { $$ = nullptr; clearScope(scopeNumber + 1); }
+						| function_decl_statement ';' { $$ = nullptr; }
 						;
 
-function_decl_statement	: type identifier '(' function_args ')' { $$ = new FunctionDeclarationNode($1, $2, *$4); addFunction($2, $$); } 
+function_decl_statement	: type identifier '(' function_args ')' { $$ = new FunctionDeclarationNode($1, $2, *$4); addFunction($2, $$, scopeNumber + 1); } 
 						;
 
 identifier	: IDENTIFIER_TOKEN	{ $$ = $1; }
@@ -162,7 +171,7 @@ identifier	: IDENTIFIER_TOKEN	{ $$ = $1; }
 type	: IDENTIFIER_TOKEN	{ $$ = $1; }
 		;
 
-function_args	: arguments_decl	{ $$ = $1; initScope(scopeNumber + 1, *$1); } 
+function_args	: arguments_decl	{ $$ = $1; } 
 				| %empty			{ $$ = new vector<ArgumentData*>(); }
 				;
 
@@ -222,7 +231,7 @@ lvalue_expression	: declaration_expression	{
 														throw runtime_error("variable " + n + " not defined");	
 													}
 													$$ = new VariableReferenceNode($1);
-												} 
+												}
 					| assignment				{ $$ = $1; }
 					| unary_lvalue_expression	{ $$ = $1; }
 					;
@@ -331,18 +340,20 @@ void yyerror(const char *msg)
 	cerr << msg << endl;
 }
 
-int main()
+void dumpInfo()
 {
-	cout << "=======================================\n";
-	scopes.push(0);
-	addScope(0);
-	yyparse();
 	for (auto x : functionsInOrder)
 	{
 		cout << "function name: ";
 		cout << x->getName() << endl;
 		int scope = getNodeScope(x);
 		cout << "Node scope " << scope << endl;
+
+		cout << "arguments:\n";
+		for (auto v : scopeArgumentsMap[scope])
+		{
+			cout << v->name << endl;
+		}
 
 		cout << "function variables:\n";
 		for (auto v : variableSymbolTable[scope])
@@ -351,14 +362,35 @@ int main()
 		}
 		cout << "\n\n";
 	}
+}
+
+int main(int argc, char *argv[])
+{
+	cout << "=======================================\n";
+	scopes.push(0);
+	addScope(0);
+	yyparse();
+	// dumpInfo();
+
 	int ip = 6;
 	ostringstream buffer;
 	auto globalVars = new CompilationVisitor(buffer, ip);
 	globalVars->visit(program);
 
+	for (auto f : functionsInOrder)
+	{
+		auto compiler = new StatementCompiler(buffer, 0, ip);
+		f->accept(compiler);
+		delete compiler;
+	}
+
+	auto mainTarget = getImmediateArgument(functionBegining["main"]);
+	writeInstruction(OP_JMP, op_args{mainTarget}, buffer);
+	delete mainTarget;
+	cout << buffer.str().length() << " bytes" << endl;
+
 	// save space for first jump instruction
 
 	cout << "=======================================\n";
-	// printScopes(scopeNumber);
 	return 0;
 }

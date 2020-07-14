@@ -21,6 +21,11 @@ public:
 		delete body;
 	}
 	virtual void accept(Visitor *v);
+
+	ASTNode *getInitialization() { return initialization; }
+	ASTNode *getCondition() { return condition; }
+	ASTNode *getIteration() { return iteration; }
+	ASTNode *getBody() { return body; }
 };
 
 class WhileLoopNode : public ASTNode
@@ -36,6 +41,8 @@ public:
 		delete body;
 	}
 	virtual void accept(Visitor *v);
+	ASTNode *getCondition() { return condition; }
+	ASTNode *getBody() { return body; }
 };
 
 #endif //LOOP_NODES_H_

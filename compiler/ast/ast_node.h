@@ -3,13 +3,6 @@
 
 #include "../../common/enums.h"
 
-enum ValueType
-{
-	UNKNOWN = 0,
-	INT = 1,
-	DOUBLE = 2,
-};
-
 class Visitor;
 
 class ASTNode

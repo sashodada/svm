@@ -1,7 +1,7 @@
 %{
 #include <vector>
 #include "../ast/node_factory.h"
-#include "../parser/y.tab.h"
+#include "../parser/y.tab.hpp"
 #include <stdlib.h>
 using namespace std;
 %}

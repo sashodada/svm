@@ -1,6 +1,13 @@
 #ifndef SVM_ENUMS_H_
 #define SVM_ENUMS_H_
 
+enum ValueType
+{
+	UNKNOWN = 0,
+	INT = 1,
+	DOUBLE = 2,
+};
+
 enum OP_CODE
 {
 	// stack 
@@ -12,6 +19,7 @@ enum OP_CODE
 
 	// jumps
 	OP_JMP,
+	OP_JZ,
 	OP_JNZ,
 	
 	// unary operators
