@@ -29,6 +29,7 @@ InstructionArgument *getRegisterOffsetArgument(REGISTER reg, ValueType type, int
 	unsigned long value = 0;
 	((int*)&value)[1] = offset;
 	data->data = value;
+	cout << "ARGUMENT OFFSET " << offset << endl;
 	return data;
 }
 
@@ -57,9 +58,8 @@ InstructionArgument *getImmediateArgument(double value)
 int writeInstruction(OP_CODE op, const vector<InstructionArgument*> &args, ostream &buffer)
 {
 	int instructionLength = 1;
-	cout << op << endl;
 	
-	buffer << static_cast<unsigned char>(op);
+	buffer.write((char*)&op, 1);
 	for (auto arg : args)
 	{
 		unsigned char argument_meta = arg->placement << 6;
@@ -69,7 +69,7 @@ int writeInstruction(OP_CODE op, const vector<InstructionArgument*> &args, ostre
 		}
 		argument_meta |= (0x3 & arg->type);
 
-		buffer << argument_meta;
+		buffer.write((char*)&argument_meta, 1);
 
 		++instructionLength;
 		if (arg->placement == PLC_REGISTER)
@@ -86,15 +86,10 @@ int writeInstruction(OP_CODE op, const vector<InstructionArgument*> &args, ostre
 			arg_beg = (arg->type == INT ? 4 : 0);
 		}
 
-		for (unsigned short i = arg_beg; i < arg_end; ++i)
-		{
-			buffer << ((unsigned char*)&(arg->data))[i];
-		}
+		buffer.write((char*)(&arg->data) + arg_beg, arg_end - arg_beg);
 
 		instructionLength += arg_end - arg_beg;
 	}
-
-	cout << "Length: " << instructionLength << endl;
 	return instructionLength;
 }
 

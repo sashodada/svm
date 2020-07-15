@@ -3,6 +3,7 @@
 #include <sstream>
 #include <fstream>
 #include <vector>
+#include <algorithm>
 #include <string>
 #include <stack>
 #include "../ast/node_factory.h"
@@ -16,18 +17,6 @@ void yyerror(const char *);
 ProgramNode *program;
 int scopeNumber = 0;
 stack<int> scopes;
-
-void dumpScopes()
-{
-	stack<int> scopeCopy = scopes;
-	while (!scopeCopy.empty())
-	{
-		int s = scopeCopy.top();
-		cout << s << endl;
-		scopeCopy.pop();
-	}
-	cout << endl;
-}
 
 %}
 
@@ -171,7 +160,7 @@ identifier	: IDENTIFIER_TOKEN	{ $$ = $1; }
 type	: IDENTIFIER_TOKEN	{ $$ = $1; }
 		;
 
-function_args	: arguments_decl	{ $$ = $1; } 
+function_args	: arguments_decl	{ $$ = $1; reverse($$->begin(), $$->end()); } 
 				| %empty			{ $$ = new vector<ArgumentData*>(); }
 				;
 
@@ -373,24 +362,35 @@ int main(int argc, char *argv[])
 	// dumpInfo();
 	ofstream file("../output.code");
 
-	int ip = 6;
+	int beginIp = 13;
+	int ip = beginIp;
 	ostringstream buffer;
 	auto globalVars = new CompilationVisitor(file, ip);
 	globalVars->visit(program);
 
+
 	for (auto f : functionsInOrder)
 	{
+		// auto f = functionsInOrder[6];
 		auto compiler = new StatementCompiler(buffer, 0, ip);
 		f->accept(compiler);
 		delete compiler;
 	}
+	int programSize = buffer.str().length() + beginIp;
+	cout << "Program size: " << programSize << endl;
+	cout << "Main address: " << functionBegining["main"] << endl;
 
+	file.write((char*)&programSize, sizeof(int));
+
+	auto rbx = getRegisterInstructionArgument(REG_RBX, INT);
+	auto programEnd = getImmediateArgument(programSize);
 	auto mainTarget = getImmediateArgument(functionBegining["main"]);
-	int programSize = buffer.str().length();
-	cout << endl << programSize << endl;
-	cout << functionBegining["main"] << endl;
+
+	writeInstruction(OP_MOV, op_args{rbx, programEnd}, file);
 	writeInstruction(OP_JMP, op_args{mainTarget}, file);
-	file << buffer.str();
+
+	file.write(buffer.str().data(), buffer.str().size());
+
 	delete mainTarget;
 
 	cout << "=======================================\n";

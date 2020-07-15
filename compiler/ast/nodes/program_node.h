@@ -20,7 +20,6 @@ public:
 		for (auto s : statements) delete s;
 	}
 
-	void print() { cout << statements.size() << endl; }
 	vector<ASTNode*> &getStatements() { return statements; }
 	virtual void accept(Visitor *v);
 };

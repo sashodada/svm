@@ -23,8 +23,6 @@ unordered_map<string, FunctionDeclarationNode *> functionSymbolTable;
 unordered_map<ASTNode *, int> nodeToScopeMap;
 unordered_map<int, vector<ArgumentData *>> scopeArgumentsMap;
 
-unordered_map<int, int> scopeVariableSize;
-
 vector<FunctionDeclarationNode *> functionsInOrder;
 
 OP_CODE getOperatorOpCode(const string &op, bool prefix = false)
@@ -67,6 +65,17 @@ OP_CODE getOperatorOpCode(const string &op, bool prefix = false)
 		return OP_AND;
 	if (op == "||")
 		return OP_OR;
+
+	if (op == "+=")
+		return OP_ADD;
+	if (op == "-=")
+		return OP_SUB;
+	if (op == "*=")
+		return OP_MLT;
+	if (op == "/=")
+		return OP_DIV;
+	if (op == "/=")
+		return OP_REM;
 
 	return OP_HALT;
 }
@@ -134,7 +143,7 @@ InstructionArgument *getLocalVariableOffset(const string &var, int scope)
 	{
 		return nullptr;
 	}
-	return getRegisterOffsetArgument(REG_RBP, type, offset - 4);
+	return getRegisterOffsetArgument(REG_RBP, type, offset - 8);
 }
 
 InstructionArgument *getGlobalVariableOffset(const string &var)
@@ -252,18 +261,18 @@ InstructionArgument *getArgumentOffsetByName(int scope, const string &name)
 	ValueType type;
 	for (int i = args.size() - 1; i >= 0; --i)
 	{
-		offset += getValueTypeOffset(getValueType(args[i]->type));
 		if (args[i]->name == name)
 		{
-			type = getValueType(args[i]->type);
+			type = args[i]->type;
 			found = true;
 			break;
 		}
+		offset += getValueTypeOffset(args[i]->type);
 	}
 
 	if (!found)
 		return nullptr;
-	return getRegisterOffsetArgument(REG_RBP, type, offset);
+	return getRegisterOffsetArgument(REG_RBP, type, offset + 8);
 }
 
 bool variableContainedInScope(const string &var, int scope)
@@ -271,7 +280,7 @@ bool variableContainedInScope(const string &var, int scope)
 	return (getLocalVariableOffset(var, scope) || getArgumentOffsetByName(scope, var) || getGlobalVariableOffset(var));
 }
 
-InstructionArgument *getArgumentOffset(FunctionInvocationNode *node, int index)
+int getArgumentOffset(FunctionInvocationNode *node, int index)
 {
 	auto funcDecl = functionSymbolTable[node->getName()];
 	auto args = funcDecl->getArguments();
@@ -279,20 +288,28 @@ InstructionArgument *getArgumentOffset(FunctionInvocationNode *node, int index)
 	int offset = 0;
 	for (size_t i = args.size() - 1; i > index; --i)
 	{
-		offset += getValueTypeOffset(getValueType(args[i]->type));
+		cout << args[i]->name << endl;
+		offset += getValueTypeOffset(args[i]->type);
 	}
 
-	return getRegisterOffsetArgument(REG_RBP, getValueType(args[index]->type), offset);
+	return offset;
+}
+
+ValueType getArgumentType(FunctionInvocationNode *node, int index)
+{
+	auto funcDecl = functionSymbolTable[node->getName()];
+	auto args = funcDecl->getArguments();
+	return args[index]->type;
 }
 
 int getFunctionArgumentSize(FunctionInvocationNode *node)
 {
 	int size = 0;
 	auto funcDecl = functionSymbolTable[node->getName()];
-	auto scope = nodeToScopeMap[funcDecl];
-	for (auto vd : variableSymbolTable[scope])
+	auto args = funcDecl->getArguments();
+	for (auto arg : args)
 	{
-		size += getValueTypeOffset(vd->getValueType());
+		size += getValueTypeOffset(arg->type);
 	}
 
 	return size;

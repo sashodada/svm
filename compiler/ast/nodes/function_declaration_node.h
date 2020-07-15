@@ -11,7 +11,7 @@ using namespace std;
 struct ArgumentData
 {
 	string name;
-	string type;
+	ValueType type;
 	ASTNode *defaultValue;
 };
 

@@ -3,6 +3,8 @@ CXX=g++
 LEX=lex
 PARSE=bison
 
+TEST_FILE=test1.cpp
+
 MAIN_OUTPUT=main.out
 
 LEX_FILE=lexer/scanner.l
@@ -25,7 +27,7 @@ lex:	$(LEX_FILE) $(PARSE_TARGET)
 	$(LEX) -o $(LEX_TARGET) lexer/scanner.l 
 
 test:	$(LEX_FILE) $(GRAMMAR_FILE)
-	make clean && make parse && make lex && make main; cat test1.cpp | ./$(MAIN_OUTPUT)
+	make clean && make parse && make lex && make main; cat $(TEST_FILE) | ./$(MAIN_OUTPUT)
 
 clean:
 	rm -f *.out $(LEX_TARGET) $(PARSE_TARGET) $(PARSE_HEADER) $(PARSE_OUTPUT)

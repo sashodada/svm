@@ -208,6 +208,7 @@ public:
 		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
 
 		int argSize = getFunctionArgumentSize(node);
+		cout << "argSize " << argSize << endl;
 		auto argOffset = getImmediateArgument(argSize);
 
 		ip += writeInstruction(OP_PUSH, op_args{rbx}, buffer);
@@ -216,16 +217,31 @@ public:
 		auto args = node->getArguments();
 		for (int i = 0; i < args.size(); ++i)
 		{
+			cout << "here" << endl;
+			int currIp = ip;
 			auto arg = args[i];
 			auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
-			arg->accept(comp);
-			auto argOffset = getArgumentOffset(node, i);
-			argOffset->reg = REG_RSP;
-			auto rax = getRegisterInstructionArgument(REG_RAX, comp->detail->type);
-			ip += writeInstruction(OP_MOV, op_args{rax, argOffset}, buffer);
+			args[i]->accept(comp);
+			int argOffsetSize = getArgumentOffset(node, i);
+			ValueType argType = getArgumentType(node, i);
+			auto argOffset = getRegisterOffsetArgument(REG_RSP, argType, argOffsetSize);
+			ip += writeInstruction(OP_MOV, op_args{argOffset, comp->detail}, buffer);
 		}
 
-		int newIp = ip + 17;
+		/**
+		 * instructions:
+		 * MOV: 			1
+		 * register: 		1
+		 * immediate:		5
+		 * SUBTOTAL			7+
+		 * 
+		 * JMP:				1
+		 * immediate:		5
+		 * SUBTOTAL			6+
+		 * ===================
+		 * TOTAL		   13
+		 */
+		int newIp = ip + 13;
 		auto anchor = getImmediateArgument(newIp);
 		ip += writeInstruction(OP_MOV, op_args{rbx, anchor}, buffer);
 
@@ -259,7 +275,7 @@ public:
 		if (cmpr->detail->placement == PLC_REGISTER && cmpr->detail->reg == REG_RAX)
 		{
 			ip += writeInstruction(OP_PUSH, op_args{cmpr->detail}, buffer);
-			rightOperand = getRegisterInstructionArgument(REG_RSP, cmpr->detail->type);
+			rightOperand = getRegisterOffsetArgument(REG_RSP, cmpr->detail->type, 0);
 		}
 
 		left->accept(cmpl);
@@ -309,7 +325,7 @@ public:
 		var->accept(calcvar);
 		val->accept(calcval);
 
-		auto opCode = (node->getOperator() == "=" ? OP_MOV : getOperatorOpCode("" + node->getOperator()[0]));
+		auto opCode = (node->getOperator() == "=" ? OP_MOV : getOperatorOpCode(node->getOperator()));
 		ip += writeInstruction(opCode, op_args{calcvar->detail, calcval->detail}, buffer);
 
 		copyDetail(detail, calcvar->detail);
@@ -481,7 +497,7 @@ public:
 		comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
 		node->getCondition()->accept(comp);
 
-		ip += writeInstruction(OP_JZ, op_args{comp->detail, loopBegin}, buffer);
+		ip += writeInstruction(OP_JNZ, op_args{comp->detail, loopBegin}, buffer);
 		ip += writeInstruction(OP_ADD, op_args{rsp, offset}, buffer);
 		delete comp;
 		delete loopBegin;
@@ -510,7 +526,7 @@ public:
 
 		comp = new ExpressionCompilerVisitor(buffer, newScope, ip);
 		node->getCondition()->accept(comp);
-		ip += writeInstruction(OP_JZ, op_args{comp->detail, loopBegin}, buffer);
+		ip += writeInstruction(OP_JNZ, op_args{comp->detail, loopBegin}, buffer);
 		ip += writeInstruction(OP_ADD, op_args{rsp, offset}, buffer);
 		delete comp;
 		delete loopBegin;
@@ -536,24 +552,31 @@ public:
 
 		// leave place for JNZ instruction (comp->detail->type offset + immediateInt(5b) + instruction(1b) )
 		int conditionResultInstructionSize =
-			(comp->detail->placement == PLC_REGISTER ? 2 : (comp->detail->placement == PLC_REGISTER_OFFSET ? 6 : getValueTypeOffset(comp->detail->type)));
+			(comp->detail->placement == PLC_REGISTER ? 0 : (comp->detail->placement == PLC_REGISTER_OFFSET ? 4 : getValueTypeOffset(comp->detail->type)));
 
-		ip += conditionResultInstructionSize + 6;
+		ip += conditionResultInstructionSize + (node->getElseBody() ? 16 : 7);
 		ostringstream newBuf;
 
 		auto comp2 = new StatementCompiler(newBuf, newScope, ip);
 		node->getBody()->accept(comp2);
 
 		auto jumpDest = getImmediateArgument(ip);
-		writeInstruction(OP_JNZ, op_args{comp->detail, jumpDest}, buffer);
+		writeInstruction(OP_JZ, op_args{comp->detail, jumpDest}, buffer);
 
-		buffer << newBuf.str();
+		buffer.write(newBuf.str().data(), newBuf.str().size());
 
 		delete comp2;
 		if (node->getElseBody())
 		{
-			comp2 = new StatementCompiler(newBuf, newScope, ip);
+			// leave place for jump instruction
+			ip += 6;
+			ostringstream elseBuf;
+			comp2 = new StatementCompiler(elseBuf, newScope, ip);
 			node->getElseBody()->accept(comp2);
+			auto jumpAfterIf = getImmediateArgument(ip);
+			writeInstruction(OP_JMP, op_args{jumpAfterIf}, buffer);
+			buffer.write(elseBuf.str().data(), elseBuf.str().size());
+			delete jumpAfterIf;
 			delete comp2;
 		}
 
@@ -646,26 +669,37 @@ public:
 		auto rbp = getRegisterInstructionArgument(REG_RBP, INT);
 		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
 		auto rbx = getRegisterInstructionArgument(REG_RBX, INT);
+		ip += writeInstruction(OP_PUSH, op_args{rbx}, buffer);
 		ip += writeInstruction(OP_PUSH, op_args{rbp}, buffer);
 		ip += writeInstruction(OP_MOV, op_args{rbp, rsp}, buffer);
+		int stackSize = 0;
+		auto localVars = variableSymbolTable[nodeToScopeMap[node]];
+		for (int i = 0; i < localVars.size(); ++i)
+		{
+			stackSize += getValueTypeOffset(localVars[i]->getValueType());
+		}
+		cout << stackSize << endl;
+		auto localVariablesOffset = getImmediateArgument(stackSize);
+		ip += writeInstruction(OP_SUB, op_args{rsp, localVariablesOffset}, buffer);
 
-		// leave room for MOV %rbx (ip) - 6b
-		ip += 6;
+		// leave room for MOV %rbx (ip) - 7b
+		ip += 7;
 		ostringstream newBuffer;
 		compileBlockStatementsHelper(newBuffer, nodeToScopeMap[node], ip, node->getBody());
 
-		auto functionEnd = getImmediateArgument(ip + 1);
-		writeInstruction(OP_MOV, op_args{rbx, functionEnd}, buffer);
-		buffer << newBuffer.str();
+		auto funcEnd = getImmediateArgument(ip);
+		writeInstruction(OP_MOV, op_args{rbx, funcEnd}, buffer);
+		buffer.write(newBuffer.str().data(), newBuffer.str().size());
 
 		ip += writeInstruction(OP_MOV, op_args{rsp, rbp}, buffer);
 		ip += writeInstruction(OP_POP, op_args{rbp}, buffer);
-		// ip += writeInstruction(OP_JMP, op_args{rbx}, buffer);
-
+		ip += writeInstruction(OP_POP, op_args{rbx}, buffer);
 		if (node->getName() == "main")
 		{
 			ip += writeInstruction(OP_HALT, op_args{}, buffer);
+			return;
 		}
+		ip += writeInstruction(OP_JMP, op_args{rbx}, buffer);
 	}
 };
 
