@@ -29,7 +29,6 @@ InstructionArgument *getRegisterOffsetArgument(REGISTER reg, ValueType type, int
 	unsigned long value = 0;
 	((int*)&value)[1] = offset;
 	data->data = value;
-	cout << "ARGUMENT OFFSET " << offset << endl;
 	return data;
 }
 

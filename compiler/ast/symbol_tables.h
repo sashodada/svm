@@ -161,7 +161,10 @@ InstructionArgument *getGlobalVariableOffset(const string &var)
 			reg = REG_DAT;
 
 		if (node->getName() == var)
-			return getRegisterOffsetArgument(reg, node->getValueType(), reg == REG_BSS ? bssOffset : dataOffset);
+			{
+				cout << var << " " << reg << " " << (reg == REG_BSS ? bssOffset : dataOffset) << endl;
+				return getRegisterOffsetArgument(reg, node->getValueType(), reg == REG_BSS ? bssOffset : dataOffset);
+			}
 
 		if (reg == REG_BSS)
 			bssOffset += getValueTypeOffset(node->getValueType());
@@ -288,7 +291,6 @@ int getArgumentOffset(FunctionInvocationNode *node, int index)
 	int offset = 0;
 	for (size_t i = args.size() - 1; i > index; --i)
 	{
-		cout << args[i]->name << endl;
 		offset += getValueTypeOffset(args[i]->type);
 	}
 

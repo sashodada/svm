@@ -208,7 +208,6 @@ public:
 		auto rsp = getRegisterInstructionArgument(REG_RSP, INT);
 
 		int argSize = getFunctionArgumentSize(node);
-		cout << "argSize " << argSize << endl;
 		auto argOffset = getImmediateArgument(argSize);
 
 		ip += writeInstruction(OP_PUSH, op_args{rbx}, buffer);
@@ -217,7 +216,6 @@ public:
 		auto args = node->getArguments();
 		for (int i = 0; i < args.size(); ++i)
 		{
-			cout << "here" << endl;
 			int currIp = ip;
 			auto arg = args[i];
 			auto comp = new ExpressionCompilerVisitor(buffer, scope, ip);
@@ -678,7 +676,6 @@ public:
 		{
 			stackSize += getValueTypeOffset(localVars[i]->getValueType());
 		}
-		cout << stackSize << endl;
 		auto localVariablesOffset = getImmediateArgument(stackSize);
 		ip += writeInstruction(OP_SUB, op_args{rsp, localVariablesOffset}, buffer);
 

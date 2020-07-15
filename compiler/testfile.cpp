@@ -1,7 +1,5 @@
-double a;
-int u = 5 % 3;
+int a;
 
-double mult(double b);
 int kuh(int x);
 int abs(int x)
 {
@@ -39,25 +37,20 @@ int calc1024()
 int fib(int n)
 {
 	int x;
-	if (n < 2)
+	if (n < 1)
 		return 0;
-	if (n == 2)
+	if (n == 1)
 		return 1;
-	return fib(n - 2) + fib(n - 2);
+	return fib(n - 1) + fib(n - 2);
 }
 
 int main()
 {
-	return fib(15);
+	a = 5;
+	return a + 2;
 }
 
 int kuh(int x)
 {
 	return x * 2;
-}
-
-double mult(double b)
-{
-	a *= b;
-	return b;
 }

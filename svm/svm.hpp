@@ -40,6 +40,7 @@ public:
 			auto regptr = getRegisterPtr(static_cast<REGISTER>(i));
 			cout << "register " << registerNames[static_cast<REGISTER>(i)] << " " << *(int *)regptr << endl;
 		}
+		cout << "(double val) RAX " << *(double *)&rax << endl;
 	}
 
 private:

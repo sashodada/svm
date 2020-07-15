@@ -3,7 +3,7 @@ CXX=g++
 LEX=lex
 PARSE=bison
 
-TEST_FILE=test1.cpp
+TEST_FILE=testfile.cpp
 
 MAIN_OUTPUT=main.out
 
