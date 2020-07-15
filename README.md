@@ -4,7 +4,7 @@ Basic stack-based virtual machine and compiler for a subset of the C programming
 ### <i>*DISCLAIMER</i>
 This project was created for personal educational purposes only.
 
-##Setup
+## Setup
 
 ### Prerequisites
 	make, lex, yacc, g++
